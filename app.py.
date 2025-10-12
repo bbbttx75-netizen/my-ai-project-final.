@@ -1,0 +1,52 @@
+import gradio as gr
+from transformers import pipeline
+from scipy.io.wavfile import write
+import numpy as np
+
+# 1. موديل الأسئلة والأجوبة (النص)
+qa_pipeline = pipeline("text-generation", model="gpt2")
+def ask_ai(question):
+    if not question:
+        return "من فضلك أدخل سؤالك."
+    result = qa_pipeline(question, max_length=50, num_return_sequences=1)
+    return result[0]['generated_text']
+
+# 2. موديل توليد الصوت (لتأكيد عمل الأداة فقط)
+def generate_audio(prompt, duration=2):
+    seed = sum(ord(c) for c in prompt) % 1000
+    np.random.seed(seed)
+    
+    sample_rate = 44100
+    t = np.linspace(0., duration, int(sample_rate * duration))
+    amplitude = np.iinfo(np.int16).max
+    data = amplitude * np.sin(2. * np.pi * 440. * t)
+    
+    filename = "output_audio.wav"
+    write(filename, sample_rate, data.astype(np.int16))
+    
+    return filename
+
+# 3. بناء الواجهة النهائية
+with gr.Blocks() as demo:
+    gr.Markdown("# تطبيق الذكاء الاصطناعي الخاص بك (النسخة النهائية والمستقرة)")
+    
+    with gr.Tab("الأسئلة والأجوبة"):
+        gr.Interface(
+            fn=ask_ai,
+            inputs=gr.Textbox(label="أدخل سؤالك بالإنجليزية"),
+            outputs="text",
+            title="أداة الأسئلة والأجوبة"
+        )
+        
+    with gr.Tab("توليد الموسيقى/الشيلات (تجريبي)"):
+        gr.Interface(
+            fn=generate_audio,
+            inputs=[
+                gr.Textbox(label="اكتب وصف الموسيقى التي تريدها (مثال: Happy, cinematic, arabic style)"),
+                gr.Slider(minimum=1, maximum=5, value=2, label="مدة المقطع (بالثواني)"),
+            ],
+            outputs=gr.Audio(label="ملف الصوت الناتج"),
+            title="أداة توليد مقطع صوتي بسيط"
+        )
+
+# لا تحتاج إلى demo.launch() هنا، Hugging Face ستقوم بذلك.
